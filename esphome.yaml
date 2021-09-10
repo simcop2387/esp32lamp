@@ -1,0 +1,188 @@
+esphome:
+  name: led-lamp-32
+  platform: ESP32
+  board: esp32dev
+  includes:
+    - virtual_rgbct_output.h
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+  password: "273b161de842e4ace4d0507795ed321c"
+
+wifi:
+  ssid: "Scalar24"
+  password: "Fb274Gh@12G1"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Led-Lamp-32 Fallback Hotspot"
+    password: "zXSV8PhqM5yk"
+
+captive_portal:
+
+
+esp32_touch:
+  setup_mode: false
+
+binary_sensor:
+  - platform: esp32_touch
+    name: "White Cycle"
+    pin: GPIO12
+    threshold: 650
+    on_press:
+      then:
+        - lambda: |-
+            static int state = 0;
+            auto call = id(external_light).turn_on();
+            call.set_color_mode(esphome::light::ColorMode::COLOR_TEMPERATURE);
+            if (state == 0) {
+              call.set_color_temperature(153);
+            } else if (state == 1) {
+              call.set_color_temperature(225);
+            } else if (state == 2) {
+              call.set_color_temperature(375);
+            } else {
+              call.set_color_temperature(500);
+            }
+            call.perform();
+            state += 1;
+            if (state == 4)
+              state = 0;
+              
+  - platform: esp32_touch
+    name: "Color Cycle"
+    pin: GPIO27
+    threshold: 650
+    on_press:
+      then:
+        - lambda: |-
+            static int state = 0;
+            auto call = id(external_light).turn_on();
+            call.set_color_mode(esphome::light::ColorMode::RGB);
+            if (state == 0) 
+              call.set_rgb(0.0, 0.0, 1.0);
+            if (state == 1) 
+              call.set_rgb(0.0, 0.5, 1.0);
+            if (state == 2) 
+              call.set_rgb(0.0, 1.0, 1.0);
+            if (state == 3) 
+              call.set_rgb(0.0, 1.0, 0.5);
+            if (state == 4) 
+              call.set_rgb(0.0, 1.0, 0.0);
+            if (state == 5) 
+              call.set_rgb(0.5, 1.0, 0.0);
+            if (state == 6) 
+              call.set_rgb(1.0, 1.0, 0.0);
+            if (state == 7) 
+              call.set_rgb(1.0, 0.5, 0.0);
+            if (state == 8) 
+              call.set_rgb(1.0, 0.0, 0.0);
+            if (state == 9) 
+              call.set_rgb(1.0, 0.0, 0.5);
+            if (state == 10) 
+              call.set_rgb(0.5, 0.0, 1.0);
+            call.perform();
+            state += 1;
+            if (state == 11)
+              state = 0;
+
+  - platform: esp32_touch
+    name: "Brightness Higher"
+    pin: GPIO14
+    threshold: 650
+    on_press:
+      then:
+      - light.dim_relative:
+          id: external_light
+          relative_brightness: 10%
+  - platform: esp32_touch
+    name: "Brightness Lower"
+    pin: GPIO33
+    threshold: 650
+    on_press:
+      then:
+      - light.dim_relative:
+          id: external_light
+          relative_brightness: -10%
+  - platform: esp32_touch
+    name: "On/Off Toggle"
+    pin: GPIO32
+    threshold: 650
+    on_press:
+      then:
+        - light.toggle:
+            id: external_light
+
+output:
+  - platform: template
+    type: float
+    id: virtual_red
+    write_action: 
+      - lambda: |-
+          calculate_light(id(internal_light), id(external_light), VRGB);
+  - platform: template
+    type: float
+    id: virtual_green
+    write_action: 
+      - lambda: |-
+          calculate_light(id(internal_light), id(external_light), VRGB);
+  - platform: template
+    type: float
+    id: virtual_blue
+    write_action: 
+      - lambda: |-
+          calculate_light(id(internal_light), id(external_light), VRGB);
+  - platform: template
+    type: float
+    id: virtual_temp
+    write_action: 
+      - lambda: |-
+          calculate_light(id(internal_light), id(external_light), VTEMP);
+  - platform: template
+    type: float
+    id: virtual_bright
+    write_action: 
+      - lambda: |-
+          calculate_light(id(internal_light), id(external_light), VTEMP);
+
+light:
+  - platform: rgbct
+    name: "Livingroom Lights"
+    red: virtual_red
+    green: virtual_green
+    blue: virtual_blue
+    color_temperature: virtual_temp
+    white_brightness: virtual_bright
+    cold_white_color_temperature: 153 mireds
+    warm_white_color_temperature: 500 mireds
+    default_transition_length: 0ms
+    id: external_light
+    color_interlock: true
+    on_turn_off:
+      then:
+        - light.control:
+            id: internal_light
+            state: off
+    on_turn_on:
+      then:
+        - light.control:
+            id: internal_light
+            state: on
+  - platform: neopixelbus
+    gamma_correct: 1.0
+    internal: true
+    type: grbw
+    num_leds: 32
+    id: internal_light
+    variant: sk6812
+    pin: GPIO22
+    name: "internal light"
+
+
+
+
